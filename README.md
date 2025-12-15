@@ -1,3 +1,5 @@
+[![.NET CI](https://github.com/AmrElsherif83/dotnet-rag-sample/actions/workflows/dotnet-ci.yml/badge.svg)](https://github.com/AmrElsherif83/dotnet-rag-sample/actions/workflows/dotnet-ci.yml)
+
 # dotnet-rag-sample
 
 A Retrieval-Augmented Generation (RAG) implementation in .NET 8, demonstrating how to build a document Q&A system using PostgreSQL with pgvector for vector storage and OpenAI for embeddings and chat completions.
