@@ -1,0 +1,27 @@
+ACME Corporation - Frequently Asked Questions
+
+About Our Company:
+ACME Corporation is a fictional company used for demonstration purposes. Founded in 2020, we specialize in providing innovative solutions for businesses of all sizes.
+
+Products and Services:
+We offer three main product lines:
+1. ACME Basic - Entry-level solution for small businesses, starting at $99/month
+2. ACME Professional - Advanced features for growing companies, starting at $299/month  
+3. ACME Enterprise - Full-featured solution with dedicated support, custom pricing
+
+Return Policy:
+All products come with a 30-day money-back guarantee. If you're not satisfied with your purchase, contact our support team within 30 days for a full refund. Digital products are non-refundable once the license key has been activated.
+
+Support Hours:
+Our customer support team is available Monday through Friday, 9 AM to 6 PM Eastern Time. Enterprise customers have access to 24/7 priority support.
+
+Contact Information:
+- Email: support@acme-demo.example.com
+- Phone: 1-800-DEMO-123 (1-800-336-6123)
+- Live Chat: Available on our website during business hours
+
+Technical Requirements:
+- Operating System: Windows 10/11, macOS 10.15+, or Ubuntu 20.04+
+- Memory: Minimum 4GB RAM (8GB recommended)
+- Storage: 500MB free disk space
+- Internet: Broadband connection required for cloud features
