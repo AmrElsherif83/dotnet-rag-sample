@@ -18,7 +18,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
         builder.ConfigureServices(services =>
         {
             // Remove existing RagDbContext registration if it exists
-            var descriptor = services.SingleOrDefault(
+            var descriptor = services.FirstOrDefault(
                 d => d.ServiceType == typeof(DbContextOptions<RagDbContext>));
             if (descriptor != null)
             {

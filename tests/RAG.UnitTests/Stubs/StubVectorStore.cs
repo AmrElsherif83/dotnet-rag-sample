@@ -24,6 +24,7 @@ public class StubVectorStore : IVectorStore
 
     public Task<IReadOnlyList<VectorHit>> SearchAsync(float[] queryEmbedding, int topK, CancellationToken cancellationToken = default)
     {
-        return Task.FromResult<IReadOnlyList<VectorHit>>(_searchResults.Take(topK).ToList());
+        var results = _searchResults.Take(topK).ToList();
+        return Task.FromResult<IReadOnlyList<VectorHit>>(results);
     }
 }

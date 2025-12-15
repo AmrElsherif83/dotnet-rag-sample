@@ -18,7 +18,9 @@ public class IngestionServiceTests
         // Setup embedding client to return fixed embeddings
         var fixedEmbedding = new float[1536];
         mockEmbeddingClient
-            .Setup(x => x.GetEmbeddingsAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetEmbeddingsAsync(
+                It.IsAny<IEnumerable<string>>(), 
+                It.IsAny<CancellationToken>()))
             .ReturnsAsync((IEnumerable<string> texts, CancellationToken _) =>
             {
                 return texts.Select(_ => fixedEmbedding).ToList();
