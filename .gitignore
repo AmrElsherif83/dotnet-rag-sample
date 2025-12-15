@@ -5,6 +5,7 @@ obj/
 # Environment files
 .env
 .env.*
+!.env.example
 
 # User-specific files
 *.suo
