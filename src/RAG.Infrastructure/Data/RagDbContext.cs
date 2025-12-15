@@ -23,18 +23,6 @@ public class RagDbContext : DbContext
     public DbSet<DocumentChunk> DocumentChunks { get; set; } = null!;
 
     /// <summary>
-    /// Configures the database context options.
-    /// </summary>
-    /// <param name="optionsBuilder">The options builder.</param>
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        base.OnConfiguring(optionsBuilder);
-        
-        // Enable pgvector extension
-        optionsBuilder.UseNpgsql(o => o.UseVector());
-    }
-
-    /// <summary>
     /// Configures the entity mappings.
     /// </summary>
     /// <param name="modelBuilder">The model builder.</param>

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Pgvector;
+using Pgvector.EntityFrameworkCore;
 using RAG.Core.Abstractions;
 using RAG.Core.Models;
 using RAG.Infrastructure.Data;
@@ -66,15 +67,18 @@ public class PgVectorStore : IVectorStore
             throw new ArgumentException("Metadata must contain 'chunkText'.", nameof(metadata));
         }
 
-        // For simplicity in demo: delete existing rows with same DocumentId first
-        var existingChunks = await _dbContext.DocumentChunks
-            .Where(c => c.DocumentId == documentId)
-            .ToListAsync(cancellationToken);
-
-        if (existingChunks.Any())
+        // Check if this is the first chunk (chunkIndex == 0)
+        // If so, delete all existing chunks for this document to handle re-ingestion
+        if (chunkIndex == 0)
         {
-            _dbContext.DocumentChunks.RemoveRange(existingChunks);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+            var existingChunks = await _dbContext.DocumentChunks
+                .Where(c => c.DocumentId == documentId)
+                .ToListAsync(cancellationToken);
+
+            if (existingChunks.Any())
+            {
+                _dbContext.DocumentChunks.RemoveRange(existingChunks);
+            }
         }
 
         // Create new DocumentChunk entity
@@ -89,6 +93,8 @@ public class PgVectorStore : IVectorStore
         };
 
         _dbContext.DocumentChunks.Add(documentChunk);
+        
+        // Save all changes in a single transaction
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -135,41 +141,38 @@ public class PgVectorStore : IVectorStore
 
         var queryVector = new Vector(queryEmbedding);
 
-        // Build the SQL query with optional filters
-        var sql = @"
-            SELECT ""Id"", ""DocumentId"", ""FileName"", ""ChunkIndex"", ""Content"", ""Embedding"" <=> @embedding AS distance
-            FROM document_chunks";
+        // Use LINQ query builder to avoid SQL injection
+        var query = _dbContext.DocumentChunks.AsQueryable();
 
-        var whereClauses = new List<string>();
+        // Apply filters
         if (!string.IsNullOrWhiteSpace(fileNameFilter))
         {
-            whereClauses.Add(@"""FileName"" = @fileNameFilter");
+            query = query.Where(c => c.FileName == fileNameFilter);
         }
         if (!string.IsNullOrWhiteSpace(documentIdFilter))
         {
-            whereClauses.Add(@"""DocumentId"" = @documentIdFilter");
+            query = query.Where(c => c.DocumentId == documentIdFilter);
         }
 
-        if (whereClauses.Any())
-        {
-            sql += " WHERE " + string.Join(" AND ", whereClauses);
-        }
-
-        sql += " ORDER BY distance LIMIT @topK";
-
-        // Execute the query
-        var results = await _dbContext.Database
-            .SqlQueryRaw<SearchResultRow>(sql, 
-                new Npgsql.NpgsqlParameter("@embedding", queryVector),
-                new Npgsql.NpgsqlParameter("@topK", topK),
-                new Npgsql.NpgsqlParameter("@fileNameFilter", (object?)fileNameFilter ?? DBNull.Value),
-                new Npgsql.NpgsqlParameter("@documentIdFilter", (object?)documentIdFilter ?? DBNull.Value))
+        // Use EF Core vector distance operation and select required fields
+        var results = await query
+            .Select(c => new
+            {
+                c.Id,
+                c.DocumentId,
+                c.FileName,
+                c.ChunkIndex,
+                c.Content,
+                Distance = c.Embedding.CosineDistance(queryVector)
+            })
+            .OrderBy(c => c.Distance)
+            .Take(topK)
             .ToListAsync(cancellationToken);
 
         // Convert distance to similarity score (1 - distance for cosine)
         var vectorHits = results.Select(r => new VectorHit(
             Id: r.Id.ToString(),
-            Score: 1.0f - r.Distance,
+            Score: 1.0f - (float)r.Distance,
             Metadata: new Dictionary<string, object>
             {
                 { "FileName", r.FileName },
@@ -180,18 +183,5 @@ public class PgVectorStore : IVectorStore
         )).ToList();
 
         return vectorHits;
-    }
-
-    /// <summary>
-    /// Helper class for deserializing search results.
-    /// </summary>
-    private class SearchResultRow
-    {
-        public long Id { get; set; }
-        public string DocumentId { get; set; } = null!;
-        public string FileName { get; set; } = null!;
-        public int ChunkIndex { get; set; }
-        public string Content { get; set; } = null!;
-        public float Distance { get; set; }
     }
 }
