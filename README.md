@@ -28,14 +28,21 @@ This project implements a complete RAG pipeline:
 
 ## 📋 Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Docker](https://www.docker.com/get-started) and Docker Compose
-- [OpenAI API Key](https://platform.openai.com/api-keys)
+Before you begin, ensure you have the following installed:
 
-## 🚀 Setup Steps
+- **Docker & Docker Compose** - [Install Docker](https://docs.docker.com/get-docker/)
+- **.NET 8 SDK** - [Download .NET 8](https://dotnet.microsoft.com/download/dotnet/8.0)
+- **OpenAI API Key** - [Get API Key](https://platform.openai.com/api-keys)
+
+Verify installations:
+```bash
+docker --version
+dotnet --version
+```
+
+## 🚀 Getting Started
 
 ### 1. Clone the Repository
-
 ```bash
 git clone https://github.com/AmrElsherif83/dotnet-rag-sample.git
 cd dotnet-rag-sample
@@ -43,48 +50,54 @@ cd dotnet-rag-sample
 
 ### 2. Configure Environment Variables
 
+Copy the example environment file and add your OpenAI API key:
 ```bash
-# Copy the example environment file
 cp .env.example .env
+```
 
-# Edit .env and add your OpenAI API key
-# OPENAI_API_KEY=sk-your-api-key-here
+Edit `.env` and set your values:
+```bash
+# Required
+OPENAI_API_KEY=sk-your-api-key-here
+
+# PostgreSQL (optional - defaults shown)
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=ragdb
+
+# Or use a full connection string
+# POSTGRES_CONNECTION_STRING=Host=localhost;Port=5432;Database=ragdb;Username=postgres;Password=postgres
 ```
 
 ### 3. Start PostgreSQL with pgvector
-
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-This starts PostgreSQL 16 with the pgvector extension on port 5432.
+Verify the container is running:
+```bash
+docker compose ps
+```
 
-### 4. Run Database Migrations
-
+### 4. Apply Database Migrations
 ```bash
 # Install EF Core tools (if not already installed)
 dotnet tool install --global dotnet-ef
 
-# Create and apply migrations
-dotnet ef migrations add InitialCreate \
-  --project src/RAG.Infrastructure \
-  --startup-project src/RAG.Api
-
-dotnet ef database update \
-  --project src/RAG.Infrastructure \
-  --startup-project src/RAG.Api
+# Apply migrations
+dotnet ef database update --project src/RAG.Infrastructure --startup-project src/RAG.Api
 ```
 
 ### 5. Run the API
-
 ```bash
 cd src/RAG.Api
 dotnet run
 ```
 
-The API will be available at `https://localhost:5001` or `http://localhost:5000`.
-
-Swagger UI: `https://localhost:5001/swagger`
+The API will be available at:
+- **HTTP**: http://localhost:5000
+- **HTTPS**: https://localhost:5001
+- **Swagger UI**: https://localhost:5001/swagger
 
 ## 🔧 Environment Variables
 
@@ -94,104 +107,175 @@ Swagger UI: `https://localhost:5001/swagger`
 | `POSTGRES_USER` | PostgreSQL username | No (default: postgres) |
 | `POSTGRES_PASSWORD` | PostgreSQL password | No (default: postgres) |
 | `POSTGRES_DB` | PostgreSQL database name | No (default: ragdb) |
+| `POSTGRES_CONNECTION_STRING` | Full connection string (overrides individual vars) | No |
 
-## 📝 How to Test with curl
+## 📡 API Endpoints
 
-### Ingest a Document
+### POST /api/ingest
+Upload and ingest a text or markdown file for RAG processing.
 
+**Request:**
+- Content-Type: `multipart/form-data`
+- Body: `file` (IFormFile) - A `.txt` or `.md` file
+
+**Example using curl:**
 ```bash
-# Ingest sample document
 curl -X POST https://localhost:5001/api/ingest \
-  -H "Content-Type: application/json" \
-  -d '{
-    "fileName": "company-policies.txt",
-    "content": "Our company offers 20 days of paid vacation per year. Employees can carry over up to 5 unused days to the next year. Remote work is allowed 3 days per week."
-  }'
+  -F "file=@samples/sample-document-1.txt"
 ```
 
-Expected response:
+**Success Response (200 OK):**
 ```json
 {
-  "fileName": "company-policies.txt",
-  "chunksCreated": 1,
+  "fileName": "sample-document-1.txt",
+  "chunksCreated": 5,
   "success": true,
   "errorMessage": null
 }
 ```
 
-### Ask a Question
+**Error Responses:**
+- `400 Bad Request` - No file provided or unsupported file type
+- `502 Bad Gateway` - Embedding service unavailable
 
+---
+
+### POST /api/ask
+Ask a question against the ingested documents.
+
+**Request:**
+- Content-Type: `application/json`
+- Body:
+```json
+{
+  "question": "What is the return policy?",
+  "topK": 5,
+  "fileNameFilter": null,
+  "documentIdFilter": null
+}
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `question` | string | Yes | - | The question to ask |
+| `topK` | int | No | 5 | Number of relevant chunks to retrieve |
+| `fileNameFilter` | string | No | null | Filter by file name (future use) |
+| `documentIdFilter` | string | No | null | Filter by document ID (future use) |
+
+**Example using curl:**
 ```bash
 curl -X POST https://localhost:5001/api/ask \
   -H "Content-Type: application/json" \
   -d '{
-    "question": "How many vacation days do employees get?",
+    "question": "What is the return policy?",
     "topK": 3
   }'
 ```
 
-Expected response:
+**Success Response (200 OK):**
 ```json
 {
-  "answer": "Employees receive 20 days of paid vacation per year, with the ability to carry over up to 5 unused days to the next year.",
+  "answer": "All products come with a 30-day money-back guarantee. If you're not satisfied with your purchase, contact our support team within 30 days for a full refund. Digital products are non-refundable once the license key has been activated.",
   "citations": [
-    "company-policies.txt: Our company offers 20 days of paid vacation per year..."
+    "sample-document-1.txt: All products come with a 30-day money-back guarantee..."
   ]
 }
 ```
 
-## 🎬 Demo Script (Interview/Presentation)
+**Error Responses:**
+- `400 Bad Request` - Question is empty or topK <= 0
+- `502 Bad Gateway` - Embedding or chat service unavailable
 
-Use this script to demonstrate the RAG system:
+## 🧪 Running Tests
 
+### Run All Tests
 ```bash
-# Step 1: Verify services are running
-docker-compose ps
-curl https://localhost:5001/health
-
-# Step 2: Ingest sample documents
-curl -X POST https://localhost:5001/api/ingest \
-  -H "Content-Type: application/json" \
-  -d @samples/sample-document-1.txt
-
-curl -X POST https://localhost:5001/api/ingest \
-  -H "Content-Type: application/json" \
-  -d @samples/sample-document-2.txt
-
-# Step 3: Ask questions about the documents
-curl -X POST https://localhost:5001/api/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What is the return policy?", "topK": 3}'
-
-curl -X POST https://localhost:5001/api/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question": "How do I contact support?", "topK": 3}'
-
-# Step 4: Show how it handles questions outside the knowledge base
-curl -X POST https://localhost:5001/api/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What is the capital of France?", "topK": 3}'
+dotnet test
 ```
 
-## 🔒 Security & Publishing Notes
+### Run Unit Tests Only
+```bash
+dotnet test tests/RAG.UnitTests
+```
 
-### ⚠️ Important Security Guidelines
+### Run Integration Tests Only
+```bash
+dotnet test tests/RAG.IntegrationTests
+```
 
-1. **Never commit secrets**: The `.env` file is gitignored. Never commit API keys or passwords.
-2. **Use environment variables**: All sensitive configuration should come from environment variables or secret managers.
-3. **Sample data only**: The `samples/` folder contains only fake, generic documents for demonstration purposes.
-4. **No PII**: Do not ingest documents containing personal identifiable information (PII) in demos.
-5. **Production deployment**: Use Azure Key Vault, AWS Secrets Manager, or similar for production secrets.
+### Run Tests with Coverage
+```bash
+dotnet test --collect:"XPlat Code Coverage"
+```
 
-### Publishing Checklist
+### Test Structure
+- **RAG.UnitTests** - Unit tests for core services and chunking logic
+  - `TextChunkerTests` - Text chunking algorithms
+  - `IngestionServiceTests` - Document ingestion pipeline
+  - `RagServiceTests` - RAG query service
+- **RAG.IntegrationTests** - API integration tests
+  - `ApiTests` - End-to-end HTTP tests
 
-- [ ] Remove any test API keys
-- [ ] Verify `.env` is in `.gitignore`
-- [ ] Check no sensitive data in sample documents
-- [ ] Review commit history for accidentally committed secrets
-- [ ] Use HTTPS in production
-- [ ] Configure proper CORS policies
-- [ ] Add rate limiting for production
+## 🔒 Security & Secrets
+
+### ⚠️ Important: Never Commit Secrets!
+
+This project uses environment variables for all sensitive configuration. **Never commit API keys, passwords, or connection strings to the repository.**
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `OPENAI_API_KEY` | Your OpenAI API key | Yes |
+| `POSTGRES_USER` | PostgreSQL username | No (default: postgres) |
+| `POSTGRES_PASSWORD` | PostgreSQL password | No (default: postgres) |
+| `POSTGRES_DB` | PostgreSQL database name | No (default: ragdb) |
+| `POSTGRES_CONNECTION_STRING` | Full connection string (overrides individual vars) | No |
+
+### Setting Up Your Environment
+
+1. Copy the example file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` with your actual values (this file is gitignored)
+
+3. For production deployments, use:
+   - Azure Key Vault
+   - AWS Secrets Manager
+   - HashiCorp Vault
+   - Kubernetes Secrets
+
+### Security Best Practices
+
+- ✅ Use `.env.example` as a template (contains placeholder values only)
+- ✅ The `.env` file is in `.gitignore` and will never be committed
+- ✅ Rotate API keys regularly
+- ✅ Use least-privilege database credentials
+- ❌ Never log sensitive values
+- ❌ Never include real credentials in sample files
+- ❌ Never commit `.env` or any file containing secrets
+
+### Reporting Security Issues
+
+If you discover a security vulnerability, please open a private security advisory rather than a public issue.
+
+## 📁 Project Structure
+
+```
+dotnet-rag-sample/
+├── src/
+│   ├── RAG.Api/              # ASP.NET Core Web API
+│   ├── RAG.Core/             # Domain models, abstractions, and services
+│   └── RAG.Infrastructure/   # Data access and external service implementations
+├── tests/
+│   ├── RAG.UnitTests/        # Unit tests
+│   └── RAG.IntegrationTests/ # API integration tests
+├── samples/                  # Sample documents for testing
+├── docker-compose.yml        # PostgreSQL with pgvector setup
+└── .env.example             # Environment variable template
+```
 
 ## ⚠️ Known Limitations
 
@@ -200,7 +284,7 @@ curl -X POST https://localhost:5001/api/ask \
 3. **Basic chunking**: The text chunker is simple. Consider using more sophisticated chunking (semantic, recursive) for production.
 4. **No streaming**: Chat responses are not streamed. Large responses may timeout.
 5. **No document management**: Cannot list, update, or delete documents after ingestion.
-6. **No file upload**: Only accepts text content, not file uploads (PDF, DOCX, etc.).
+6. **Limited file types**: Only accepts `.txt` and `.md` files. No support for PDF, DOCX, or other document formats.
 
 ## 🚧 Next Steps / Roadmap
 
