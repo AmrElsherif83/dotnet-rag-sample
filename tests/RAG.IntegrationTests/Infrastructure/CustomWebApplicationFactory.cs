@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using RAG.Core.Abstractions;
@@ -17,6 +18,19 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         // Set required environment variables for testing
         Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-key-for-integration-tests");
+        
+        // Explicitly clear API_KEY to ensure authentication is disabled for these tests
+        Environment.SetEnvironmentVariable("API_KEY", null);
+        
+        // Also ensure configuration doesn't have ApiKey set
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["OpenAI:ApiKey"] = "test-key-for-integration-tests"
+                // Explicitly don't set ApiKey to ensure auth is disabled
+            });
+        });
         
         builder.ConfigureServices(services =>
         {

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using RAG.Core.Abstractions;
@@ -15,9 +16,19 @@ public class AuthEnabledWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // Set the API key for testing
+        // Set the API key for testing via environment variable BEFORE configuration is built
         Environment.SetEnvironmentVariable("API_KEY", "test-api-key-for-integration-tests");
         Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-openai-key");
+        
+        // Also add it to configuration to ensure it's picked up
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ApiKey"] = "test-api-key-for-integration-tests",
+                ["OpenAI:ApiKey"] = "test-openai-key"
+            });
+        });
         
         builder.ConfigureServices(services =>
         {
