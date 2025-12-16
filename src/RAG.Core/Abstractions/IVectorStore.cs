@@ -10,11 +10,12 @@ public interface IVectorStore
     /// <summary>
     /// Inserts or updates a vector embedding with associated metadata.
     /// </summary>
-    /// <param name="id">The unique identifier for the vector.</param>
+    /// <param name="documentId">The document identifier.</param>
+    /// <param name="chunkIndex">The chunk index within the document.</param>
     /// <param name="embedding">The embedding vector.</param>
     /// <param name="metadata">Additional metadata to store with the vector.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    Task UpsertAsync(string id, float[] embedding, Dictionary<string, object> metadata, CancellationToken cancellationToken = default);
+    Task UpsertAsync(string documentId, int chunkIndex, float[] embedding, IReadOnlyDictionary<string, object> metadata, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Searches for the most similar vectors to the query embedding.

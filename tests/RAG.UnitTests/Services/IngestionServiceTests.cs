@@ -30,8 +30,9 @@ public class IngestionServiceTests
         mockVectorStore
             .Setup(x => x.UpsertAsync(
                 It.IsAny<string>(),
+                It.IsAny<int>(),
                 It.IsAny<float[]>(),
-                It.IsAny<Dictionary<string, object>>(),
+                It.IsAny<IReadOnlyDictionary<string, object>>(),
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
@@ -56,8 +57,9 @@ public class IngestionServiceTests
         mockVectorStore.Verify(
             x => x.UpsertAsync(
                 It.IsAny<string>(),
+                It.IsAny<int>(),
                 It.IsAny<float[]>(),
-                It.IsAny<Dictionary<string, object>>(),
+                It.IsAny<IReadOnlyDictionary<string, object>>(),
                 It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
     }
@@ -89,8 +91,9 @@ public class IngestionServiceTests
         mockVectorStore.Verify(
             x => x.UpsertAsync(
                 It.IsAny<string>(),
+                It.IsAny<int>(),
                 It.IsAny<float[]>(),
-                It.IsAny<Dictionary<string, object>>(),
+                It.IsAny<IReadOnlyDictionary<string, object>>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
     }

@@ -27,15 +27,21 @@ public class PgVectorStore : IVectorStore
     /// <summary>
     /// Inserts or updates a vector embedding with associated metadata.
     /// </summary>
-    /// <param name="id">The unique identifier for the vector (format: "documentId_chunkIndex").</param>
+    /// <param name="documentId">The document identifier.</param>
+    /// <param name="chunkIndex">The chunk index within the document.</param>
     /// <param name="embedding">The embedding vector.</param>
     /// <param name="metadata">Additional metadata to store with the vector.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    public async Task UpsertAsync(string id, float[] embedding, Dictionary<string, object> metadata, CancellationToken cancellationToken = default)
+    public async Task UpsertAsync(
+        string documentId, 
+        int chunkIndex, 
+        float[] embedding, 
+        IReadOnlyDictionary<string, object> metadata, 
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(id))
+        if (string.IsNullOrWhiteSpace(documentId))
         {
-            throw new ArgumentException("Id cannot be null or empty.", nameof(id));
+            throw new ArgumentException("Document ID cannot be null or empty.", nameof(documentId));
         }
 
         if (embedding == null || embedding.Length == 0)
@@ -48,27 +54,16 @@ public class PgVectorStore : IVectorStore
             throw new ArgumentNullException(nameof(metadata));
         }
 
-        // Extract document ID from the id (format: "fileName_chunkIndex")
-        var lastUnderscoreIndex = id.LastIndexOf('_');
-        var documentId = lastUnderscoreIndex > 0 ? id.Substring(0, lastUnderscoreIndex) : id;
+        // Extract metadata values
+        var fileName = metadata.TryGetValue("fileName", out var fn) ? fn?.ToString() ?? documentId : documentId;
+        var content = metadata.TryGetValue("chunkText", out var ct) ? ct?.ToString() ?? string.Empty : string.Empty;
 
-        // Extract metadata
-        var fileName = metadata.TryGetValue("fileName", out var fileNameObj) ? fileNameObj.ToString() : documentId;
-        var chunkIndex = metadata.TryGetValue("chunkIndex", out var chunkIndexObj) ? Convert.ToInt32(chunkIndexObj) : 0;
-        var chunkText = metadata.TryGetValue("chunkText", out var chunkTextObj) ? chunkTextObj.ToString() : string.Empty;
-
-        if (string.IsNullOrEmpty(fileName))
-        {
-            fileName = documentId;
-        }
-
-        if (string.IsNullOrEmpty(chunkText))
+        if (string.IsNullOrEmpty(content))
         {
             throw new ArgumentException("Metadata must contain 'chunkText'.", nameof(metadata));
         }
 
-        // Check if this is the first chunk (chunkIndex == 0)
-        // If so, delete all existing chunks for this document to handle re-ingestion
+        // Delete existing chunks for this document on first chunk (chunkIndex == 0)
         if (chunkIndex == 0)
         {
             var existingChunks = await _dbContext.DocumentChunks
@@ -81,20 +76,18 @@ public class PgVectorStore : IVectorStore
             }
         }
 
-        // Create new DocumentChunk entity
-        var documentChunk = new DocumentChunk
+        // Create new chunk - Id is auto-generated
+        var chunk = new DocumentChunk
         {
             DocumentId = documentId,
             FileName = fileName,
             ChunkIndex = chunkIndex,
-            Content = chunkText,
+            Content = content,
             Embedding = new Vector(embedding),
             CreatedAtUtc = DateTime.UtcNow
         };
 
-        _dbContext.DocumentChunks.Add(documentChunk);
-        
-        // Save all changes in a single transaction
+        _dbContext.DocumentChunks.Add(chunk);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

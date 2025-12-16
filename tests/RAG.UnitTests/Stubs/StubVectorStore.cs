@@ -16,7 +16,12 @@ public class StubVectorStore : IVectorStore
         _searchResults = searchResults ?? new List<VectorHit>();
     }
 
-    public Task UpsertAsync(string id, float[] embedding, Dictionary<string, object> metadata, CancellationToken cancellationToken = default)
+    public Task UpsertAsync(
+        string documentId, 
+        int chunkIndex, 
+        float[] embedding, 
+        IReadOnlyDictionary<string, object> metadata, 
+        CancellationToken cancellationToken = default)
     {
         // No-op for stub
         return Task.CompletedTask;
