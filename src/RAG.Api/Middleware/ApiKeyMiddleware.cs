@@ -25,6 +25,14 @@ public class ApiKeyMiddleware
         _apiKey = Environment.GetEnvironmentVariable("API_KEY") 
             ?? configuration["ApiKey"] 
             ?? string.Empty;
+        
+        // Validate that API key is configured when middleware is registered
+        if (string.IsNullOrWhiteSpace(_apiKey))
+        {
+            throw new InvalidOperationException(
+                "API Key authentication middleware is registered but no API key is configured. " +
+                "Set API_KEY environment variable or ApiKey in configuration.");
+        }
     }
 
     public async Task InvokeAsync(HttpContext context)

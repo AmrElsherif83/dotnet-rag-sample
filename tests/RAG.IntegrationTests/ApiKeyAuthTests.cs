@@ -42,10 +42,12 @@ public class ApiKeyAuthTests : IClassFixture<AuthEnabledWebApplicationFactory>
     {
         // Arrange
         var payload = new { question = "Test question", topK = 3 };
-        _client.DefaultRequestHeaders.Add("X-API-KEY", InvalidApiKey);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/ask");
+        request.Headers.Add("X-API-KEY", InvalidApiKey);
+        request.Content = JsonContent.Create(payload);
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/ask", payload);
+        var response = await _client.SendAsync(request);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
