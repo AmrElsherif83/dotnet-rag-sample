@@ -55,14 +55,19 @@ public class ApiTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task Ingest_NoFile_ReturnsBadRequest()
     {
-        // Arrange - Empty multipart content
+        // Arrange - Empty file (zero length)
         using var content = new MultipartFormDataContent();
+        var emptyBytes = Array.Empty<byte>();
+        var fileContent = new ByteArrayContent(emptyBytes);
+        content.Add(fileContent, "file", "empty.txt");
 
         // Act
         var response = await _client.PostAsync("/api/ingest", content);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("No file provided");
     }
 
     [Fact]
@@ -80,6 +85,8 @@ public class ApiTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("Unsupported file type");
     }
 
     [Fact]
@@ -115,6 +122,8 @@ public class ApiTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("Question is required");
     }
 
     [Fact]
@@ -128,6 +137,8 @@ public class ApiTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("Question is required");
     }
 
     [Fact]
@@ -141,6 +152,8 @@ public class ApiTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("TopK must be greater than 0");
     }
 
     [Fact]
@@ -154,6 +167,8 @@ public class ApiTests : IClassFixture<CustomWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("TopK must be greater than 0");
     }
 
     [Fact]
@@ -176,6 +191,55 @@ public class ApiTests : IClassFixture<CustomWebApplicationFactory>
         result.Should().NotBeNull();
         result!.Answer.Should().NotBeNullOrWhiteSpace();
         result.Citations.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Ask_NullQuestion_ReturnsBadRequest()
+    {
+        // Arrange - Send request with null question
+        var payload = new { question = (string?)null, topK = 5 };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/ask", payload);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Ingest_UnsupportedExtension_Exe_ReturnsBadRequest()
+    {
+        // Arrange - Create a .exe file (definitely unsupported)
+        using var content = new MultipartFormDataContent();
+        var bytes = Encoding.UTF8.GetBytes("fake executable content");
+        var fileContent = new ByteArrayContent(bytes);
+        content.Add(fileContent, "file", "malware.exe");
+
+        // Act
+        var response = await _client.PostAsync("/api/ingest", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("Unsupported file type");
+    }
+
+    [Fact]
+    public async Task Ingest_UnsupportedExtension_Docx_ReturnsBadRequest()
+    {
+        // Arrange - Create a .docx file (unsupported for now)
+        using var content = new MultipartFormDataContent();
+        var bytes = Encoding.UTF8.GetBytes("fake docx content");
+        var fileContent = new ByteArrayContent(bytes);
+        content.Add(fileContent, "file", "document.docx");
+
+        // Act
+        var response = await _client.PostAsync("/api/ingest", content);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var responseBody = await response.Content.ReadAsStringAsync();
+        responseBody.Should().Contain("Unsupported file type");
     }
 }
 
