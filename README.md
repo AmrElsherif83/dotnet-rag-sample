@@ -186,6 +186,71 @@ curl -X POST https://localhost:5001/api/ask \
 - `400 Bad Request` - Question is empty or topK <= 0
 - `502 Bad Gateway` - Embedding or chat service unavailable
 
+## 🔐 API Key Authentication (Optional)
+
+The API supports optional API key authentication. When enabled, all requests must include a valid `X-API-KEY` header.
+
+### Enabling Authentication
+
+Set the `API_KEY` environment variable:
+
+```bash
+# Linux/macOS
+export API_KEY=your-secret-api-key-here
+
+# Windows PowerShell
+$env:API_KEY="your-secret-api-key-here"
+
+# Or add to .env file
+API_KEY=your-secret-api-key-here
+```
+
+### Making Authenticated Requests
+
+Include the `X-API-KEY` header in all requests:
+
+```bash
+# Ingest with API key
+curl -X POST https://localhost:5001/api/ingest \
+  -H "X-API-KEY: your-secret-api-key-here" \
+  -F "file=@samples/sample-document-1.txt"
+
+# Ask with API key
+curl -X POST https://localhost:5001/api/ask \
+  -H "X-API-KEY: your-secret-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What is the return policy?", "topK": 3}'
+```
+
+### Error Responses
+
+| Status | Description |
+|--------|-------------|
+| `401 Unauthorized` | API key is missing or invalid |
+
+**Missing API Key Response:**
+```json
+{
+  "error": "Unauthorized",
+  "message": "API Key is missing. Include X-API-KEY header in your request."
+}
+```
+
+**Invalid API Key Response:**
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid API Key."
+}
+```
+
+### Notes
+
+- Swagger UI (`/swagger`) is accessible without authentication for development convenience
+- If `API_KEY` is not set, authentication is disabled and all requests are allowed
+- Use a strong, randomly generated key in production
+- Never commit your API key to source control
+
 ## 🧪 Running Tests
 
 ### Run All Tests
@@ -279,16 +344,15 @@ dotnet-rag-sample/
 
 ## ⚠️ Known Limitations
 
-1. **No authentication**: The API has no authentication/authorization. Add JWT or API keys for production.
-2. **Single embedding model**: Currently hardcoded to OpenAI's text-embedding-ada-002 (1536 dimensions).
-3. **Basic chunking**: The text chunker is simple. Consider using more sophisticated chunking (semantic, recursive) for production.
-4. **No streaming**: Chat responses are not streamed. Large responses may timeout.
-5. **No document management**: Cannot list, update, or delete documents after ingestion.
-6. **Limited file types**: Only accepts `.txt` and `.md` files. No support for PDF, DOCX, or other document formats.
+1. **Single embedding model**: Currently hardcoded to OpenAI's text-embedding-ada-002 (1536 dimensions).
+2. **Basic chunking**: The text chunker is simple. Consider using more sophisticated chunking (semantic, recursive) for production.
+3. **No streaming**: Chat responses are not streamed. Large responses may timeout.
+4. **No document management**: Cannot list, update, or delete documents after ingestion.
+5. **Limited file types**: Only accepts `.txt` and `.md` files. No support for PDF, DOCX, or other document formats.
 
 ## 🚧 Next Steps / Roadmap
 
-- [ ] Add API authentication (JWT/API Keys)
+- [x] Add API authentication (JWT/API Keys)
 - [ ] Implement document management (list, delete)
 - [ ] Add file upload support (PDF, DOCX parsing)
 - [ ] Implement streaming responses

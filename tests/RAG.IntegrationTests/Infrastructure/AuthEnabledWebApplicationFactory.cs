@@ -10,25 +10,23 @@ using RAG.Infrastructure.Data;
 namespace RAG.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Custom web application factory for integration testing.
+/// Custom factory that enables API key authentication for testing.
 /// </summary>
-public class CustomWebApplicationFactory : WebApplicationFactory<Program>
+public class AuthEnabledWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // Set required environment variables for testing
-        Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-key-for-integration-tests");
+        // Set the API key for testing via environment variable BEFORE configuration is built
+        Environment.SetEnvironmentVariable("API_KEY", "test-api-key-for-integration-tests");
+        Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-openai-key");
         
-        // Explicitly clear API_KEY to ensure authentication is disabled for these tests
-        Environment.SetEnvironmentVariable("API_KEY", null);
-        
-        // Also ensure configuration doesn't have ApiKey set
+        // Also add it to configuration to ensure it's picked up
         builder.ConfigureAppConfiguration((context, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["OpenAI:ApiKey"] = "test-key-for-integration-tests"
-                // Explicitly don't set ApiKey to ensure auth is disabled
+                ["ApiKey"] = "test-api-key-for-integration-tests",
+                ["OpenAI:ApiKey"] = "test-openai-key"
             });
         });
         
