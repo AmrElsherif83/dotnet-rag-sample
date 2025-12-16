@@ -28,11 +28,15 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 services.Remove(descriptor);
             }
 
-            // Add in-memory database for testing
+            // Add in-memory database for testing (without pgvector)
             services.AddDbContext<RagDbContext>(options =>
             {
                 options.UseInMemoryDatabase("InMemoryTestDb");
             });
+
+            // Replace IVectorStore with stub implementation (doesn't require pgvector)
+            services.RemoveAll<IVectorStore>();
+            services.AddSingleton<IVectorStore, StubVectorStore>();
 
             // Replace IEmbeddingClient with dummy implementation
             services.RemoveAll<IEmbeddingClient>();
@@ -41,15 +45,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // Replace IChatClient with dummy implementation
             services.RemoveAll<IChatClient>();
             services.AddSingleton<IChatClient, DummyChatClient>();
-
-            // Build the service provider and ensure database is created
-            var sp = services.BuildServiceProvider();
-            using var scope = sp.CreateScope();
-            var scopedServices = scope.ServiceProvider;
-            var db = scopedServices.GetRequiredService<RagDbContext>();
-            
-            // Ensure the database is created
-            db.Database.EnsureCreated();
         });
     }
 }
