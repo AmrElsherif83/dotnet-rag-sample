@@ -73,7 +73,6 @@ public class PgVectorStore : IVectorStore
             if (existingChunks.Any())
             {
                 _dbContext.DocumentChunks.RemoveRange(existingChunks);
-                await _dbContext.SaveChangesAsync(cancellationToken);
             }
         }
 
