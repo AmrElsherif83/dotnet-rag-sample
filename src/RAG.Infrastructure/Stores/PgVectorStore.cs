@@ -168,10 +168,10 @@ public class PgVectorStore : IVectorStore
             Score: 1.0f - (float)r.Distance,
             Metadata: new Dictionary<string, object>
             {
-                { "FileName", r.FileName },
-                { "DocumentId", r.DocumentId },
-                { "Content", r.Content },
-                { "ChunkIndex", r.ChunkIndex }
+                { "fileName", r.FileName },
+                { "documentId", r.DocumentId },
+                { "chunkText", r.Content },
+                { "chunkIndex", r.ChunkIndex }
             }
         )).ToList();
 
