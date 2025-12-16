@@ -6,13 +6,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using RAG.Core.Abstractions;
 using RAG.Infrastructure.Data;
+using Xunit;
 
 namespace RAG.IntegrationTests.Infrastructure;
 
 /// <summary>
 /// Custom factory that enables API key authentication for testing.
+/// Implements IAsyncLifetime to ensure proper cleanup of environment variables.
 /// </summary>
-public class AuthEnabledWebApplicationFactory : WebApplicationFactory<Program>
+public class AuthEnabledWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -58,5 +60,27 @@ public class AuthEnabledWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<IChatClient>();
             services.AddSingleton<IChatClient, DummyChatClient>();
         });
+    }
+    
+    /// <summary>
+    /// Initialize the factory (no-op).
+    /// </summary>
+    public Task InitializeAsync() => Task.CompletedTask;
+    
+    /// <summary>
+    /// Clean up environment variables to prevent pollution of other tests.
+    /// </summary>
+    public new async Task DisposeAsync()
+    {
+        try
+        {
+            // Always clear API_KEY environment variable to prevent pollution
+            // Do this first to ensure it happens even if base disposal fails
+            Environment.SetEnvironmentVariable("API_KEY", null);
+        }
+        finally
+        {
+            await base.DisposeAsync();
+        }
     }
 }

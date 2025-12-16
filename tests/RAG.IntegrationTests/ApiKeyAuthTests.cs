@@ -11,6 +11,7 @@ namespace RAG.IntegrationTests;
 /// Tests for API key authentication middleware.
 /// These tests use a separate factory that enables API key auth.
 /// </summary>
+[Collection("Auth Tests")]
 public class ApiKeyAuthTests : IClassFixture<AuthEnabledWebApplicationFactory>
 {
     private readonly HttpClient _client;

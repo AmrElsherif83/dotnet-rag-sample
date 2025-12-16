@@ -7,6 +7,7 @@ using Xunit;
 
 namespace RAG.IntegrationTests;
 
+[Collection("NoAuth Tests")]
 public class ApiTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
