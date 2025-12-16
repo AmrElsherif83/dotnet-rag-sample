@@ -52,6 +52,14 @@ if (string.IsNullOrEmpty(connectionString))
                 "   - POSTGRES_HOST (optional, default: localhost)\n" +
                 "   - POSTGRES_PORT (optional, default: 5432)");
         }
+        
+        // Prevent insecure default credentials in production
+        if (username.Equals("postgres", StringComparison.OrdinalIgnoreCase) && password == "postgres")
+        {
+            throw new InvalidOperationException(
+                "❌ Default PostgreSQL credentials (postgres/postgres) are not allowed in production.\n" +
+                "   Set secure credentials using POSTGRES_USER and POSTGRES_PASSWORD.");
+        }
     }
 
     // Use defaults for development if not set
