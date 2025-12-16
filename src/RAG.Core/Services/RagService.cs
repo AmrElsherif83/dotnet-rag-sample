@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging;
 using RAG.Core.Abstractions;
+using RAG.Core.Exceptions;
 using RAG.Core.Models;
 
 namespace RAG.Core.Services;
@@ -13,6 +15,7 @@ public class RagService
     private readonly IVectorStore _vectorStore;
     private readonly double _temperature;
     private readonly int _maxTokens;
+    private readonly ILogger<RagService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RagService"/> class.
@@ -22,18 +25,21 @@ public class RagService
     /// <param name="vectorStore">The vector store for searching relevant context.</param>
     /// <param name="temperature">Sampling temperature for chat completions.</param>
     /// <param name="maxTokens">Maximum tokens in chat response.</param>
+    /// <param name="logger">The logger for structured logging.</param>
     public RagService(
         IEmbeddingClient embeddingClient, 
         IChatClient chatClient, 
         IVectorStore vectorStore,
-        double temperature = 0.0,
-        int maxTokens = 512)
+        double temperature,
+        int maxTokens,
+        ILogger<RagService> logger)
     {
         _embeddingClient = embeddingClient ?? throw new ArgumentNullException(nameof(embeddingClient));
         _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
         _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
         _temperature = temperature;
         _maxTokens = maxTokens;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -45,6 +51,9 @@ public class RagService
     /// <returns>A <see cref="RagAnswer"/> containing the answer and source citations.</returns>
     public async Task<RagAnswer> AskAsync(string question, int topK = 5, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Processing question with topK={TopK}", topK);
+        _logger.LogDebug("Question: {Question}", question);
+
         if (string.IsNullOrWhiteSpace(question))
         {
             throw new ArgumentException("Question cannot be null or empty.", nameof(question));
@@ -56,10 +65,21 @@ public class RagService
         }
 
         // Embed the question
-        var questionEmbedding = await _embeddingClient.GetEmbeddingAsync(question, cancellationToken);
+        float[] questionEmbedding;
+        try
+        {
+            questionEmbedding = await _embeddingClient.GetEmbeddingAsync(question, cancellationToken);
+            _logger.LogDebug("Generated embedding for question");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate embedding for question");
+            throw new EmbeddingServiceException("Failed to generate embedding for question", ex);
+        }
 
         // Search for similar chunks
         var searchResults = await _vectorStore.SearchAsync(questionEmbedding, topK, cancellationToken);
+        _logger.LogInformation("Found {HitCount} relevant chunks", searchResults.Count);
 
         // Extract context and citations from search results
         var contextParts = new List<string>();
@@ -98,11 +118,22 @@ public class RagService
         };
 
         // Call chat client with temperature and maxTokens from options
-        var answer = await _chatClient.AskAsync(
-            messages, 
-            _temperature, 
-            _maxTokens, 
-            cancellationToken);
+        string answer;
+        try
+        {
+            _logger.LogDebug("Calling chat service with temperature={Temperature}, maxTokens={MaxTokens}", _temperature, _maxTokens);
+            answer = await _chatClient.AskAsync(
+                messages, 
+                _temperature, 
+                _maxTokens, 
+                cancellationToken);
+            _logger.LogInformation("Successfully received answer from chat service");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Chat service failed to generate answer");
+            throw new ChatServiceException("Failed to get answer from chat service", ex);
+        }
 
         return new RagAnswer(answer, citations);
     }

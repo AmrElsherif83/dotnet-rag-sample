@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using RAG.Core.Abstractions;
 using RAG.Core.Services;
@@ -36,7 +37,10 @@ public class IngestionServiceTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var service = new IngestionService(mockEmbeddingClient.Object, mockVectorStore.Object);
+        var service = new IngestionService(
+            mockEmbeddingClient.Object, 
+            mockVectorStore.Object,
+            NullLogger<IngestionService>.Instance);
 
         // Act - Use content that will create multiple chunks
         var content = string.Join("\n\n", Enumerable.Repeat("This is a paragraph with enough content to be its own chunk when using default settings.", 3));
@@ -71,7 +75,10 @@ public class IngestionServiceTests
         var mockEmbeddingClient = new Mock<IEmbeddingClient>();
         var mockVectorStore = new Mock<IVectorStore>();
 
-        var service = new IngestionService(mockEmbeddingClient.Object, mockVectorStore.Object);
+        var service = new IngestionService(
+            mockEmbeddingClient.Object, 
+            mockVectorStore.Object,
+            NullLogger<IngestionService>.Instance);
 
         // Act
         var result = await service.IngestAsync("test.txt", "");
@@ -105,7 +112,10 @@ public class IngestionServiceTests
         var mockEmbeddingClient = new Mock<IEmbeddingClient>();
         var mockVectorStore = new Mock<IVectorStore>();
 
-        var service = new IngestionService(mockEmbeddingClient.Object, mockVectorStore.Object);
+        var service = new IngestionService(
+            mockEmbeddingClient.Object, 
+            mockVectorStore.Object,
+            NullLogger<IngestionService>.Instance);
 
         // Act
         var result = await service.IngestAsync("test.txt", "   \n\n   ");

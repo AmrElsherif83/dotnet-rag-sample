@@ -1,5 +1,7 @@
+using Microsoft.Extensions.Logging;
 using RAG.Core.Abstractions;
 using RAG.Core.Chunking;
+using RAG.Core.Exceptions;
 using RAG.Core.Models;
 
 namespace RAG.Core.Services;
@@ -11,16 +13,22 @@ public class IngestionService
 {
     private readonly IEmbeddingClient _embeddingClient;
     private readonly IVectorStore _vectorStore;
+    private readonly ILogger<IngestionService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IngestionService"/> class.
     /// </summary>
     /// <param name="embeddingClient">The embedding client for generating text embeddings.</param>
     /// <param name="vectorStore">The vector store for persisting embeddings.</param>
-    public IngestionService(IEmbeddingClient embeddingClient, IVectorStore vectorStore)
+    /// <param name="logger">The logger for structured logging.</param>
+    public IngestionService(
+        IEmbeddingClient embeddingClient, 
+        IVectorStore vectorStore,
+        ILogger<IngestionService> logger)
     {
         _embeddingClient = embeddingClient ?? throw new ArgumentNullException(nameof(embeddingClient));
         _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <summary>
@@ -32,6 +40,8 @@ public class IngestionService
     /// <returns>An <see cref="IngestResult"/> containing the ingestion outcome.</returns>
     public async Task<IngestResult> IngestAsync(string fileName, string text, CancellationToken cancellationToken = default)
     {
+        _logger.LogInformation("Starting ingestion of file: {FileName}", fileName);
+        
         try
         {
             if (string.IsNullOrWhiteSpace(fileName))
@@ -46,6 +56,7 @@ public class IngestionService
 
             // Chunk the text using paragraph-aware chunking
             var chunks = TextChunker.ChunkByParagraphs(text);
+            _logger.LogDebug("Created {ChunkCount} chunks from {FileName}", chunks.Count, fileName);
 
             if (chunks.Count == 0)
             {
@@ -53,7 +64,17 @@ public class IngestionService
             }
 
             // Get embeddings for all chunks
-            var embeddings = await _embeddingClient.GetEmbeddingsAsync(chunks, cancellationToken);
+            IReadOnlyList<float[]> embeddings;
+            try
+            {
+                embeddings = await _embeddingClient.GetEmbeddingsAsync(chunks, cancellationToken);
+                _logger.LogInformation("Generated {EmbeddingCount} embeddings for {FileName}", embeddings.Count, fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to generate embeddings for {FileName}", fileName);
+                throw new EmbeddingServiceException($"Failed to generate embeddings for {fileName}", ex);
+            }
 
             // Use fileName as the document ID
             var documentId = fileName;
@@ -71,10 +92,16 @@ public class IngestionService
                 await _vectorStore.UpsertAsync(documentId, i, embeddings[i], metadata, cancellationToken);
             }
 
+            _logger.LogInformation("Successfully ingested {FileName} with {ChunkCount} chunks", fileName, chunks.Count);
             return new IngestResult(fileName, chunks.Count, true, null);
+        }
+        catch (EmbeddingServiceException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error during ingestion of {FileName}", fileName);
             return new IngestResult(fileName, 0, false, ex.Message);
         }
     }
