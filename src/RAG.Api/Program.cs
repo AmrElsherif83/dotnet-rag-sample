@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using RAG.Api.Middleware;
 using RAG.Core.Abstractions;
 using RAG.Core.Services;
 using RAG.Infrastructure.Clients;
@@ -119,6 +120,24 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Optional API Key Authentication
+// Only enable if API_KEY environment variable or ApiKey config is set
+var apiKey = Environment.GetEnvironmentVariable("API_KEY") 
+    ?? builder.Configuration["ApiKey"];
+
+if (!string.IsNullOrWhiteSpace(apiKey))
+{
+    Console.WriteLine("🔐 API Key authentication is ENABLED");
+    Console.WriteLine("   All requests must include X-API-KEY header");
+    app.UseMiddleware<ApiKeyMiddleware>();
+}
+else
+{
+    Console.WriteLine("⚠️  API Key authentication is DISABLED");
+    Console.WriteLine("   Set API_KEY environment variable to enable");
+}
+
 app.UseAuthorization();
 app.MapControllers();
 
