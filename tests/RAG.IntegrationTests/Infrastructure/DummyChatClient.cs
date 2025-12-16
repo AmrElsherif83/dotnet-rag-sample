@@ -1,4 +1,5 @@
 using RAG.Core.Abstractions;
+using RAG.Core.Models;
 
 namespace RAG.IntegrationTests.Infrastructure;
 
@@ -8,9 +9,12 @@ namespace RAG.IntegrationTests.Infrastructure;
 /// </summary>
 public class DummyChatClient : IChatClient
 {
-    public Task<string> AskAsync(string prompt, CancellationToken cancellationToken = default)
+    public Task<string> AskAsync(
+        IEnumerable<ChatMessage> messages, 
+        double temperature = 0.0, 
+        int maxTokens = 512, 
+        CancellationToken cancellationToken = default)
     {
-        // Return a deterministic answer based on the prompt
         return Task.FromResult("This is a test answer based on the provided context.");
     }
 }

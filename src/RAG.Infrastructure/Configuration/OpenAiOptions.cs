@@ -29,4 +29,14 @@ public class OpenAiOptions
     /// Model to use for chat completions. Defaults to gpt-4o-mini.
     /// </summary>
     public string ChatModel { get; set; } = "gpt-4o-mini";
+    
+    /// <summary>
+    /// Sampling temperature for chat completions. Default is 0.0.
+    /// </summary>
+    public double Temperature { get; set; } = 0.0;
+
+    /// <summary>
+    /// Maximum tokens in the chat response. Default is 512.
+    /// </summary>
+    public int MaxTokens { get; set; } = 512;
 }

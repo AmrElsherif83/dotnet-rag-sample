@@ -1,4 +1,5 @@
 using RAG.Core.Abstractions;
+using RAG.Core.Models;
 
 namespace RAG.UnitTests.Stubs;
 
@@ -8,9 +9,13 @@ namespace RAG.UnitTests.Stubs;
 /// </summary>
 public class StubChatClient : IChatClient
 {
-    public Task<string> AskAsync(string prompt, CancellationToken cancellationToken = default)
+    public Task<string> AskAsync(
+        IEnumerable<ChatMessage> messages, 
+        double temperature = 0.0, 
+        int maxTokens = 512, 
+        CancellationToken cancellationToken = default)
     {
-        // Echo back the prompt so tests can verify what was sent
-        return Task.FromResult($"Echo: {prompt}");
+        var userMessage = messages.LastOrDefault(m => m.Role == "user");
+        return Task.FromResult($"Answer based on: {userMessage?.Content ?? "no context"}");
     }
 }

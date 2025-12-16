@@ -11,6 +11,8 @@ public class RagService
     private readonly IEmbeddingClient _embeddingClient;
     private readonly IChatClient _chatClient;
     private readonly IVectorStore _vectorStore;
+    private readonly double _temperature;
+    private readonly int _maxTokens;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RagService"/> class.
@@ -18,11 +20,20 @@ public class RagService
     /// <param name="embeddingClient">The embedding client for generating query embeddings.</param>
     /// <param name="chatClient">The chat client for generating answers.</param>
     /// <param name="vectorStore">The vector store for searching relevant context.</param>
-    public RagService(IEmbeddingClient embeddingClient, IChatClient chatClient, IVectorStore vectorStore)
+    /// <param name="temperature">Sampling temperature for chat completions.</param>
+    /// <param name="maxTokens">Maximum tokens in chat response.</param>
+    public RagService(
+        IEmbeddingClient embeddingClient, 
+        IChatClient chatClient, 
+        IVectorStore vectorStore,
+        double temperature = 0.0,
+        int maxTokens = 512)
     {
         _embeddingClient = embeddingClient ?? throw new ArgumentNullException(nameof(embeddingClient));
         _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
         _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
+        _temperature = temperature;
+        _maxTokens = maxTokens;
     }
 
     /// <summary>
@@ -61,31 +72,37 @@ public class RagService
             // Extract chunk text from metadata
             if (hit.Metadata.TryGetValue("chunkText", out var chunkTextObj) && chunkTextObj is string chunkText)
             {
-                contextParts.Add($"[Source {i + 1}]: {chunkText}");
-                
-                // Build citation with file name if available
-                var citation = chunkText;
-                if (hit.Metadata.TryGetValue("fileName", out var fileNameObj) && fileNameObj is string fileName)
+                // Build context parts with source numbering
+                var fileName = "unknown";
+                if (hit.Metadata.TryGetValue("fileName", out var fileNameObj) && fileNameObj is string fn)
                 {
-                    citation = $"{fileName}: {chunkText}";
+                    fileName = fn;
                 }
-                citations.Add(citation);
+                
+                contextParts.Add($"[{i + 1}] (Source: {fileName})\n{chunkText}");
+                
+                // Build citation with file name and preview
+                var preview = chunkText.Length > 100 ? chunkText[..100] + "..." : chunkText;
+                citations.Add($"{fileName}: {preview}");
             }
         }
 
-        // Build the prompt with context
+        // Build context from hits
         var context = string.Join("\n\n", contextParts);
-        var prompt = $@"You are a helpful assistant. Answer the question based on the following context. If the context doesn't contain enough information to answer the question, say so.
 
-Context:
-{context}
+        // Create messages with system and user roles
+        var messages = new[]
+        {
+            new ChatMessage("system", "You are a helpful assistant. Answer ONLY using the provided context. If the answer is not in the context, respond with 'I don't know.'"),
+            new ChatMessage("user", $"Context:\n{context}\n\nQuestion: {question}")
+        };
 
-Question: {question}
-
-Answer:";
-
-        // Get the answer from the chat client
-        var answer = await _chatClient.AskAsync(prompt, cancellationToken);
+        // Call chat client with temperature and maxTokens from options
+        var answer = await _chatClient.AskAsync(
+            messages, 
+            _temperature, 
+            _maxTokens, 
+            cancellationToken);
 
         return new RagAnswer(answer, citations);
     }

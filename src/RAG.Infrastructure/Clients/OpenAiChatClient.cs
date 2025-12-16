@@ -1,7 +1,10 @@
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 using RAG.Core.Abstractions;
+using RAG.Core.Models;
 using RAG.Infrastructure.Configuration;
 
 namespace RAG.Infrastructure.Clients;
@@ -50,37 +53,46 @@ public class OpenAiChatClient : IChatClient
     }
 
     /// <summary>
-    /// Sends a prompt to the chat model and returns the response.
+    /// Sends a chat completion request with multiple messages.
     /// </summary>
-    /// <param name="prompt">The prompt to send to the model.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The model's response as a string.</returns>
+    /// <param name="messages">The conversation messages</param>
+    /// <param name="temperature">Sampling temperature (0.0 to 2.0)</param>
+    /// <param name="maxTokens">Maximum tokens in the response</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The assistant's response</returns>
     /// <exception cref="HttpRequestException">Thrown when the API request fails.</exception>
-    public async Task<string> AskAsync(string prompt, CancellationToken cancellationToken = default)
+    public async Task<string> AskAsync(
+        IEnumerable<ChatMessage> messages, 
+        double temperature = 0.0, 
+        int maxTokens = 512, 
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(prompt))
+        if (messages == null || !messages.Any())
         {
-            throw new ArgumentException("Prompt cannot be null or empty.", nameof(prompt));
+            throw new ArgumentException("Messages cannot be null or empty.", nameof(messages));
         }
 
-        var request = new ChatRequest
+        var requestBody = new
         {
-            Model = _options.ChatModel,
-            Messages = new List<ChatMessage>
-            {
-                new ChatMessage
-                {
-                    Role = "user",
-                    Content = prompt
-                }
-            },
-            Temperature = 0.7
+            model = _options.ChatModel,
+            messages = messages.Select(m => new { role = m.Role, content = m.Content }).ToArray(),
+            temperature = temperature,
+            max_tokens = maxTokens
         };
+
+        var jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
+
+        var json = JsonSerializer.Serialize(requestBody, jsonOptions);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
 
         HttpResponseMessage response;
         try
         {
-            response = await _httpClient.PostAsJsonAsync("/chat/completions", request, cancellationToken);
+            response = await _httpClient.PostAsync("chat/completions", content, cancellationToken);
         }
         catch (HttpRequestException ex)
         {
@@ -95,48 +107,22 @@ public class OpenAiChatClient : IChatClient
                 $"OpenAI API request failed with status {response.StatusCode}. Response: {truncatedBody}");
         }
 
-        var chatResponse = await response.Content.ReadFromJsonAsync<ChatResponse>(cancellationToken);
+        var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+        var chatResponse = JsonSerializer.Deserialize<ChatResponse>(responseJson, jsonOptions);
         
         if (chatResponse?.Choices == null || chatResponse.Choices.Count == 0)
         {
             throw new HttpRequestException("OpenAI API returned an invalid response: no choices found.");
         }
 
-        var content = chatResponse.Choices[0].Message?.Content;
+        var messageContent = chatResponse.Choices[0].Message?.Content;
         
-        if (string.IsNullOrEmpty(content))
+        if (string.IsNullOrEmpty(messageContent))
         {
             throw new HttpRequestException("OpenAI API returned an invalid response: message content is empty.");
         }
 
-        return content;
-    }
-
-    /// <summary>
-    /// Request model for chat completions.
-    /// </summary>
-    internal record ChatRequest
-    {
-        [JsonPropertyName("model")]
-        public string Model { get; init; } = string.Empty;
-
-        [JsonPropertyName("messages")]
-        public List<ChatMessage> Messages { get; init; } = new();
-
-        [JsonPropertyName("temperature")]
-        public double Temperature { get; init; }
-    }
-
-    /// <summary>
-    /// Chat message model.
-    /// </summary>
-    internal record ChatMessage
-    {
-        [JsonPropertyName("role")]
-        public string Role { get; init; } = string.Empty;
-
-        [JsonPropertyName("content")]
-        public string Content { get; init; } = string.Empty;
+        return messageContent;
     }
 
     /// <summary>
@@ -154,6 +140,18 @@ public class OpenAiChatClient : IChatClient
     internal record ChatChoice
     {
         [JsonPropertyName("message")]
-        public ChatMessage? Message { get; init; }
+        public ChatMessageResponse? Message { get; init; }
+    }
+    
+    /// <summary>
+    /// Chat message response model.
+    /// </summary>
+    internal record ChatMessageResponse
+    {
+        [JsonPropertyName("role")]
+        public string Role { get; init; } = string.Empty;
+
+        [JsonPropertyName("content")]
+        public string Content { get; init; } = string.Empty;
     }
 }
