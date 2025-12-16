@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using RAG.Core.Abstractions;
 using RAG.Core.Services;
 using RAG.Infrastructure.Clients;
@@ -42,7 +43,16 @@ builder.Services.AddScoped<IChatClient, OpenAiChatClient>();
 
 // Register core services
 builder.Services.AddScoped<IngestionService>();
-builder.Services.AddScoped<RagService>();
+builder.Services.AddScoped<RagService>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+    return new RagService(
+        sp.GetRequiredService<IEmbeddingClient>(),
+        sp.GetRequiredService<IChatClient>(),
+        sp.GetRequiredService<IVectorStore>(),
+        options.Temperature,
+        options.MaxTokens);
+});
 
 var app = builder.Build();
 
