@@ -55,10 +55,12 @@ public class IngestionService
             // Get embeddings for all chunks
             var embeddings = await _embeddingClient.GetEmbeddingsAsync(chunks, cancellationToken);
 
+            // Use fileName as the document ID
+            var documentId = fileName;
+
             // Upsert each chunk to the vector store
             for (int i = 0; i < chunks.Count; i++)
             {
-                var chunkId = $"{fileName}_{i}";
                 var metadata = new Dictionary<string, object>
                 {
                     { "fileName", fileName },
@@ -66,7 +68,7 @@ public class IngestionService
                     { "chunkText", chunks[i] }
                 };
 
-                await _vectorStore.UpsertAsync(chunkId, embeddings[i], metadata, cancellationToken);
+                await _vectorStore.UpsertAsync(documentId, i, embeddings[i], metadata, cancellationToken);
             }
 
             return new IngestResult(fileName, chunks.Count, true, null);
