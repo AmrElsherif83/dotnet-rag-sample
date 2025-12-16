@@ -190,8 +190,8 @@ public class RagServiceTests
         };
         var stubVectorStore = new StubVectorStore(searchResults);
 
-        // Act
-        var hits = await stubVectorStore.SearchAsync(new float[1536], topK: 5);
+        // Act - Use a dummy embedding vector (size doesn't matter for stub)
+        var hits = await stubVectorStore.SearchAsync(new float[100], topK: 5);
 
         // Assert
         hits.Should().NotBeEmpty();
