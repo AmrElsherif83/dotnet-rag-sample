@@ -40,22 +40,22 @@ public class StubVectorStore : IVectorStore
         {
             foreach (var (chunkIndex, embedding, metadata) in chunks)
             {
-                // Create metadata dictionary for VectorHit
+                // Create metadata dictionary for VectorHit with lowercase keys
                 var hitMetadata = new Dictionary<string, object>();
                 foreach (var kvp in metadata)
                 {
                     hitMetadata[kvp.Key] = kvp.Value;
                 }
                 
-                // Add required metadata if not present
-                if (!hitMetadata.ContainsKey("FileName"))
-                    hitMetadata["FileName"] = metadata.ContainsKey("fileName") ? metadata["fileName"] : "";
-                if (!hitMetadata.ContainsKey("DocumentId"))
-                    hitMetadata["DocumentId"] = docId;
-                if (!hitMetadata.ContainsKey("ChunkIndex"))
-                    hitMetadata["ChunkIndex"] = chunkIndex;
-                if (!hitMetadata.ContainsKey("Content"))
-                    hitMetadata["Content"] = metadata.ContainsKey("chunkText") ? metadata["chunkText"] : "";
+                // Ensure lowercase metadata keys are present
+                if (!hitMetadata.ContainsKey("fileName"))
+                    hitMetadata["fileName"] = metadata.ContainsKey("fileName") ? metadata["fileName"] : "";
+                if (!hitMetadata.ContainsKey("documentId"))
+                    hitMetadata["documentId"] = docId;
+                if (!hitMetadata.ContainsKey("chunkIndex"))
+                    hitMetadata["chunkIndex"] = chunkIndex;
+                if (!hitMetadata.ContainsKey("chunkText"))
+                    hitMetadata["chunkText"] = metadata.ContainsKey("chunkText") ? metadata["chunkText"] : "";
                 
                 var id = $"{docId}_{chunkIndex}";
                 results.Add(new VectorHit(id, 0.9f, hitMetadata));

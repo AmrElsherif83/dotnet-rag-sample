@@ -118,4 +118,95 @@ public class RagServiceTests
             await service.AskAsync("");
         });
     }
+
+    [Fact]
+    public async Task AskAsync_ExtractsMetadataWithLowercaseKeys()
+    {
+        // Arrange
+        var searchResults = new List<VectorHit>
+        {
+            new VectorHit(
+                "1",
+                0.95f,
+                new Dictionary<string, object>
+                {
+                    { "fileName", "test-document.txt" },
+                    { "documentId", "doc-001" },
+                    { "chunkIndex", 0 },
+                    { "chunkText", "This is test content from the stub vector store." }
+                }),
+            new VectorHit(
+                "2",
+                0.85f,
+                new Dictionary<string, object>
+                {
+                    { "fileName", "test-document.txt" },
+                    { "documentId", "doc-001" },
+                    { "chunkIndex", 1 },
+                    { "chunkText", "Additional test content for RAG queries." }
+                })
+        };
+
+        var stubVectorStore = new StubVectorStore(searchResults);
+        var stubEmbeddingClient = new StubEmbeddingClient();
+        var stubChatClient = new StubChatClient();
+        var logger = NullLogger<RagService>.Instance;
+        
+        var ragService = new RagService(
+            stubEmbeddingClient,
+            stubChatClient,
+            stubVectorStore,
+            temperature: 0.0,
+            maxTokens: 512,
+            logger);
+
+        // Act
+        var result = await ragService.AskAsync("What is in the document?", topK: 3);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Answer.Should().NotBeNullOrEmpty();
+        result.Citations.Should().NotBeNull();
+        // Citations should contain the fileName from lowercase metadata
+        result.Citations.Should().Contain(c => c.Contains("test-document.txt"));
+    }
+
+    [Fact]
+    public async Task StubVectorStore_ReturnsLowercaseMetadataKeys()
+    {
+        // Arrange
+        var searchResults = new List<VectorHit>
+        {
+            new VectorHit(
+                "1",
+                0.95f,
+                new Dictionary<string, object>
+                {
+                    { "fileName", "test-document.txt" },
+                    { "documentId", "doc-001" },
+                    { "chunkIndex", 0 },
+                    { "chunkText", "This is test content from the stub vector store." }
+                })
+        };
+        var stubVectorStore = new StubVectorStore(searchResults);
+
+        // Act
+        var hits = await stubVectorStore.SearchAsync(new float[1536], topK: 5);
+
+        // Assert
+        hits.Should().NotBeEmpty();
+        var metadata = hits.First().Metadata;
+        
+        // Should contain lowercase keys
+        metadata.Should().ContainKey("fileName");
+        metadata.Should().ContainKey("documentId");
+        metadata.Should().ContainKey("chunkIndex");
+        metadata.Should().ContainKey("chunkText");
+        
+        // Should NOT contain PascalCase keys
+        metadata.Keys.Should().NotContain("FileName");
+        metadata.Keys.Should().NotContain("DocumentId");
+        metadata.Keys.Should().NotContain("ChunkIndex");
+        metadata.Keys.Should().NotContain("Content");
+    }
 }
