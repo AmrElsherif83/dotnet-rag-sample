@@ -110,7 +110,19 @@ public class OpenAiChatClient : IChatClient
         var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
         var chatResponse = JsonSerializer.Deserialize<ChatResponse>(responseJson, jsonOptions);
         
-        return chatResponse?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+        if (chatResponse?.Choices == null || chatResponse.Choices.Count == 0)
+        {
+            throw new HttpRequestException("OpenAI API returned an invalid response: no choices found.");
+        }
+
+        var messageContent = chatResponse.Choices[0].Message?.Content;
+        
+        if (string.IsNullOrEmpty(messageContent))
+        {
+            throw new HttpRequestException("OpenAI API returned an invalid response: message content is empty.");
+        }
+
+        return messageContent;
     }
 
     /// <summary>

@@ -82,7 +82,7 @@ public class RagService
                 contextParts.Add($"[{i + 1}] (Source: {fileName})\n{chunkText}");
                 
                 // Build citation with file name and preview
-                var preview = chunkText.Length > 100 ? chunkText.Substring(0, 100) + "..." : chunkText;
+                var preview = chunkText.Length > 100 ? chunkText[..100] + "..." : chunkText;
                 citations.Add($"{fileName}: {preview}");
             }
         }
