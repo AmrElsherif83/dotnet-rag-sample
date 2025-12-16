@@ -70,10 +70,17 @@ public class AuthEnabledWebApplicationFactory : WebApplicationFactory<Program>, 
     /// <summary>
     /// Clean up environment variables to prevent pollution of other tests.
     /// </summary>
-    public new Task DisposeAsync()
+    public new async Task DisposeAsync()
     {
-        // Clear API_KEY environment variable to prevent pollution
-        Environment.SetEnvironmentVariable("API_KEY", null);
-        return base.DisposeAsync().AsTask();
+        try
+        {
+            // Always clear API_KEY environment variable to prevent pollution
+            // Do this first to ensure it happens even if base disposal fails
+            Environment.SetEnvironmentVariable("API_KEY", null);
+        }
+        finally
+        {
+            await base.DisposeAsync();
+        }
     }
 }

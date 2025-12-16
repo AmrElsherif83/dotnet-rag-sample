@@ -20,8 +20,6 @@ public class ApiKeyAuthTests : IClassFixture<AuthEnabledWebApplicationFactory>
 
     public ApiKeyAuthTests(AuthEnabledWebApplicationFactory factory)
     {
-        // Ensure API_KEY is set for this test class (with authentication)
-        Environment.SetEnvironmentVariable("API_KEY", ValidApiKey);
         _client = factory.CreateClient();
     }
 

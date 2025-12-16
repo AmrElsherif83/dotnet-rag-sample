@@ -14,8 +14,6 @@ public class ApiTests : IClassFixture<CustomWebApplicationFactory>
 
     public ApiTests(CustomWebApplicationFactory factory)
     {
-        // Ensure API_KEY is cleared for this test class (no authentication)
-        Environment.SetEnvironmentVariable("API_KEY", null);
         _client = factory.CreateClient();
     }
 
