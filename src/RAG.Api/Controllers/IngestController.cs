@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RAG.Core.Exceptions;
 using RAG.Core.Services;
 
 namespace RAG.Api.Controllers;
@@ -8,10 +9,12 @@ namespace RAG.Api.Controllers;
 public class IngestController : ControllerBase
 {
     private readonly IngestionService _ingestionService;
+    private readonly ILogger<IngestController> _logger;
 
-    public IngestController(IngestionService ingestionService)
+    public IngestController(IngestionService ingestionService, ILogger<IngestController> logger)
     {
         _ingestionService = ingestionService;
+        _logger = logger;
     }
 
     /// <summary>
@@ -23,10 +26,12 @@ public class IngestController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> IngestFile(IFormFile file, CancellationToken cancellationToken)
     {
         if (file == null || file.Length == 0)
         {
+            _logger.LogWarning("Ingest request received with no file");
             return BadRequest("No file provided");
         }
 
@@ -36,11 +41,23 @@ public class IngestController : ControllerBase
             return BadRequest("Unsupported file type. Only .txt and .md files are allowed.");
         }
 
-        using var reader = new StreamReader(file.OpenReadStream());
-        var text = await reader.ReadToEndAsync(cancellationToken);
+        try
+        {
+            using var reader = new StreamReader(file.OpenReadStream());
+            var text = await reader.ReadToEndAsync(cancellationToken);
 
-        var result = await _ingestionService.IngestAsync(file.FileName, text, cancellationToken);
+            var result = await _ingestionService.IngestAsync(file.FileName, text, cancellationToken);
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (EmbeddingServiceException ex)
+        {
+            _logger.LogError(ex, "Embedding service failure during ingestion");
+            return StatusCode(StatusCodes.Status502BadGateway, new 
+            { 
+                error = "Embedding service unavailable", 
+                message = ex.Message 
+            });
+        }
     }
 }

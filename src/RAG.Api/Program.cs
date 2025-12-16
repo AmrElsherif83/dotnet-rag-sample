@@ -46,12 +46,14 @@ builder.Services.AddScoped<IngestionService>();
 builder.Services.AddScoped<RagService>(sp =>
 {
     var options = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+    var logger = sp.GetRequiredService<ILogger<RagService>>();
     return new RagService(
         sp.GetRequiredService<IEmbeddingClient>(),
         sp.GetRequiredService<IChatClient>(),
         sp.GetRequiredService<IVectorStore>(),
         options.Temperature,
-        options.MaxTokens);
+        options.MaxTokens,
+        logger);
 });
 
 var app = builder.Build();

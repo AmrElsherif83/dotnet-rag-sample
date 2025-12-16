@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using RAG.Core.Models;
 using RAG.Core.Services;
 using RAG.UnitTests.Stubs;
@@ -38,7 +39,13 @@ public class RagServiceTests
         var stubEmbeddingClient = new StubEmbeddingClient();
         var stubChatClient = new StubChatClient();
 
-        var service = new RagService(stubEmbeddingClient, stubChatClient, stubVectorStore);
+        var service = new RagService(
+            stubEmbeddingClient, 
+            stubChatClient, 
+            stubVectorStore,
+            0.0,
+            512,
+            NullLogger<RagService>.Instance);
 
         // Act
         var result = await service.AskAsync("What is the content?");
@@ -69,7 +76,13 @@ public class RagServiceTests
         var stubEmbeddingClient = new StubEmbeddingClient();
         var stubChatClient = new StubChatClient();
 
-        var service = new RagService(stubEmbeddingClient, stubChatClient, stubVectorStore);
+        var service = new RagService(
+            stubEmbeddingClient, 
+            stubChatClient, 
+            stubVectorStore,
+            0.0,
+            512,
+            NullLogger<RagService>.Instance);
 
         // Act
         var result = await service.AskAsync("What is the content?");
@@ -91,7 +104,13 @@ public class RagServiceTests
         var stubEmbeddingClient = new StubEmbeddingClient();
         var stubChatClient = new StubChatClient();
 
-        var service = new RagService(stubEmbeddingClient, stubChatClient, stubVectorStore);
+        var service = new RagService(
+            stubEmbeddingClient, 
+            stubChatClient, 
+            stubVectorStore,
+            0.0,
+            512,
+            NullLogger<RagService>.Instance);
 
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(async () =>
