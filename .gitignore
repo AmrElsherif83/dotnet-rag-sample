@@ -80,9 +80,20 @@ ScaffoldingReadMe.txt
 *.svclog
 *.scc
 
+# Logs
+logs/
+
 # Test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
+
+# Test results and coverage
+TestResults/
+**/TestResults/
+**/coverage.cobertura.xml
+*.coverage
+*.coveragexml
+coverage/
 
 # Publish profiles
 *.pubxml
@@ -96,3 +107,6 @@ ScaffoldingReadMe.txt
 
 # macOS
 .DS_Store
+
+# Windows
+Thumbs.db

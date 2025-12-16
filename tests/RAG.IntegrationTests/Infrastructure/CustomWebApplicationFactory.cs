@@ -15,6 +15,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // Set required environment variables for testing
+        Environment.SetEnvironmentVariable("OPENAI_API_KEY", "test-key-for-integration-tests");
+        
         builder.ConfigureServices(services =>
         {
             // Remove existing RagDbContext registration if it exists

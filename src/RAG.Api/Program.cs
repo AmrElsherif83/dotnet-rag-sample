@@ -9,22 +9,67 @@ using RAG.Infrastructure.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add controllers
-builder.Services.AddControllers();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+// ============================================
+// VALIDATE REQUIRED ENVIRONMENT VARIABLES
+// ============================================
 
-// Build connection string from environment variables
+// Validate OpenAI API Key
+var openAiApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+    ?? builder.Configuration["OpenAI:ApiKey"];
+
+if (string.IsNullOrWhiteSpace(openAiApiKey))
+{
+    throw new InvalidOperationException(
+        "❌ OPENAI_API_KEY is required but not configured.\n" +
+        "   Set it using one of these methods:\n" +
+        "   1. Environment variable: export OPENAI_API_KEY=sk-your-key\n" +
+        "   2. User secrets: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-your-key\"\n" +
+        "   3. See .env.example for reference");
+}
+
+// Validate PostgreSQL connection
 var connectionString = Environment.GetEnvironmentVariable("POSTGRES_CONNECTION_STRING");
+
 if (string.IsNullOrEmpty(connectionString))
 {
     var host = Environment.GetEnvironmentVariable("POSTGRES_HOST") ?? "localhost";
     var port = Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432";
     var database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "ragdb";
-    var username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "postgres";
-    var password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") ?? "postgres";
+    var username = Environment.GetEnvironmentVariable("POSTGRES_USER");
+    var password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD");
+
+    // In development, allow defaults; in production, require explicit configuration
+    if (builder.Environment.IsProduction())
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidOperationException(
+                "❌ PostgreSQL credentials are required in production.\n" +
+                "   Set POSTGRES_CONNECTION_STRING or individual variables:\n" +
+                "   - POSTGRES_USER\n" +
+                "   - POSTGRES_PASSWORD\n" +
+                "   - POSTGRES_DB (optional, default: ragdb)\n" +
+                "   - POSTGRES_HOST (optional, default: localhost)\n" +
+                "   - POSTGRES_PORT (optional, default: 5432)");
+        }
+    }
+
+    // Use defaults for development if not set
+    username ??= "postgres";
+    password ??= "postgres";
+
     connectionString = $"Host={host};Port={port};Database={database};Username={username};Password={password}";
 }
+
+Console.WriteLine("✅ Environment configuration validated successfully");
+
+// ============================================
+// CONFIGURE SERVICES
+// ============================================
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // Register DbContext with pgvector support
 builder.Services.AddDbContext<RagDbContext>(options =>
@@ -41,7 +86,7 @@ builder.Services.AddScoped<IVectorStore, PgVectorStore>();
 builder.Services.AddScoped<IEmbeddingClient, OpenAiEmbeddingClient>();
 builder.Services.AddScoped<IChatClient, OpenAiChatClient>();
 
-// Register core services
+// Register core services with logging
 builder.Services.AddScoped<IngestionService>();
 builder.Services.AddScoped<RagService>(sp =>
 {
