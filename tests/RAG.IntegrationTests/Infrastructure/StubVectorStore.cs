@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using RAG.Core.Abstractions;
 using RAG.Core.Models;
 
@@ -9,7 +10,7 @@ namespace RAG.IntegrationTests.Infrastructure;
 /// </summary>
 public class StubVectorStore : IVectorStore
 {
-    private readonly Dictionary<string, List<(int chunkIndex, float[] embedding, IReadOnlyDictionary<string, object> metadata)>> _store = new();
+    private readonly ConcurrentDictionary<string, List<(int chunkIndex, float[] embedding, IReadOnlyDictionary<string, object> metadata)>> _store = new();
 
     public Task UpsertAsync(
         string documentId, 
@@ -18,12 +19,15 @@ public class StubVectorStore : IVectorStore
         IReadOnlyDictionary<string, object> metadata, 
         CancellationToken cancellationToken = default)
     {
-        if (!_store.ContainsKey(documentId))
-        {
-            _store[documentId] = new();
-        }
+        _store.AddOrUpdate(
+            documentId,
+            _ => new List<(int, float[], IReadOnlyDictionary<string, object>)> { (chunkIndex, embedding, metadata) },
+            (_, existingList) =>
+            {
+                existingList.Add((chunkIndex, embedding, metadata));
+                return existingList;
+            });
         
-        _store[documentId].Add((chunkIndex, embedding, metadata));
         return Task.CompletedTask;
     }
 
